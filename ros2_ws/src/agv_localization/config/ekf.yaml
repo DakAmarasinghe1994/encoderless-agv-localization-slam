@@ -1,0 +1,51 @@
+ekf_filter_node:
+  ros__parameters:
+
+    frequency: 15.0 # Default 30
+    sensor_timeout: 0.2
+    two_d_mode: true
+
+    publish_tf: true
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    # RF2O Odometry
+    odom0: /odom_rf2o
+
+    odom0_config: [
+      true,  true,  false, # x, y, z
+      false, false, true,  # roll, pitch, yaw
+      false,  false,  false, # vx, vy, vz.
+      false, false, false,  # Vroll, vpitch, vyaw
+      false, false, false  # ax, ay, az
+    ]
+
+    odom0_differential: false
+    odom0_relative: false
+
+    # BNO055 IMU
+    imu0: /imu/data
+
+    imu0_config: [
+      false, false, false, # x, y, z
+      false, false, true,  # roll, pitch, yaw
+      false, false, false, # vx, vy, vz
+      false, false, true,  # Vroll, vpitch, vyaw
+      false,  false, false # ax, ay, az
+    ]
+
+    imu0_differential: false
+    imu0_relative: true # false by default
+    imu0_remove_gravitational_acceleration: false
+
+    use_control: false
+
+
+    # Some tests
+    # Test 1 -> Set all values of imu0_config to false. Only testing RF2O.
+    # Test 2 -> Make only vyaw of imu0_config to true
+    # Test 3 -> Make both yaw and vyaw of imu0_config to true. Make imu0_relative: true (Set initial IMU orientaion as the starting reference)
+    # Test 4 -> Change other variables. As example enable linear acceleration

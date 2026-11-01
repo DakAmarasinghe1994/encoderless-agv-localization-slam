@@ -1,0 +1,229 @@
+Order of Sequence:
+
+----------------------------------------------------------------------------------------------
+
+1) Read the "Project Description" document to know the structure of hardware configuration and software architecture.
+
+----------------------------------------------------------------------------------------------
+
+2) Setup Arduino
+* Upload the code to the Arduino from the folder Code -> Arduino -> BNO055_IMU_Data. This file is required to read IMU serial data. Make sure to install "Adafruit_BNO055" library from software. More info: https://github.com/adafruit/Adafruit_BNO055/blob/master/README.md
+
+----------------------------------------------------------------------------------------------
+
+3) Copy the content of 'Code -> ros2_ws' folder and re-build the ros2 workspace. Use 'colcon build --symlink-install' command. Install dependencies as required if notifications are shown in the terminal (Many dependencies have already been included in package.xml files).
+
+----------------------------------------------------------------------------------------------
+
+4) Launch the ROS2 stack and manage variables
+
+*Order of commands to run the entire stack (In separate terminals, make sure to source each terminal):
+
+ros2 launch ydlidar_ros2_driver ydlidar_launch.py
+
+ros2 launch rf2o_laser_odometry rf2o_laser_odometry.launch.py
+
+ros2 launch bno055_imu imu.launch.py
+
+ros2 launch agv_localization imu_tf.launch.py
+
+ros2 launch agv_localization ekf.launch.py
+
+ros2 launch agv_localization slam.launch.py
+
+ros2 run rviz2 rviz2
+then,
+Manual Rviz Configuration (Note: Rviz configuration file is already created when building the ROS2 stack)
+Set Fixed Frame -> map, Add -> tf, Add -> map, LaserScan, Odometry (filtered) via topics
+
+
+* Run master launch file instead of launching separate files (Launch the entire stack): 
+
+ros2 launch agv_localization agv.launch.py (Rviz is true by default. Add use_rviz:=false as an argument at the end of the above command if rviz is not required)
+
+
+* Edit parameters and launch arguments as required by using '.yaml' and '.launch.py' files. Then rebuild.
+
+Ex: To fuse linear acceleration of IMU with EKF, set the first two elements of the fifth raw of 'imu0_config' matrix to 'true'. The representations of the specific elements have been commented in the code to identify.
+
+Ex: Update minimum_travel_distance in slam.yaml file
+
+Ex: Update launch argument in the 'ydlidar_launch.py' file, if a different lidar model is used.
+
+Ex: Update frame transformation variables with new measurements
+
+etc.
+  
+
+* Use the following command to Save a Slam Map after creating a maps folder in home directory or anywhere (my_map is the name of the output file in the following command. This command can be used after completing the navigation and building the map).
+
+ros2 run nav2_map_server map_saver_cli -f ~/maps/my_map
+
+
+more information on Saving a map:
+* Create a 'map' folder in home directory or any location as preferred. 
+* Run Ros2 package with all Nodes. (Note: update slam toolbox map_update_interval: 2.0 as required)
+* Unplug mouse, monitor keyboard. Move the vehicle around come back to start point wait for few seconds.
+* Re-plug mouse, monitor keyboard.
+* Run the commands in order "ros2 lifecycle get /slam_toolbox", "ros2 topic hz /map", "ros2 run nav2_map_server map_saver_cli -f ~/maps/my_map", "ls -lh ~/maps/my_map.*".
+
+  
+------------------------------------------------------------------------------------------
+
+
+5) Manually saving a rviz configuration file Example (Optional)
+
+1) Start RViz: rviz2
+2) In the left Displays panel, select or add: LaserScan
+3) Set: Topic: /scan
+4) Expand the LaserScan topic/QoS settings: 
+5) Change the settings to: 
+Reliability Policy: Best Effort
+Durability Policy: Volatile
+History Policy: Keep Last
+Depth: 5
+6) Check these LaserScan settings:
+Style: Points
+Size: 0.01 or 0.02
+Decay Time: 0
+Position Transformer: XYZ
+7) Verify /scan outside RViz:
+ros2 topic hz /scan
+ros2 topic info /scan --verbose
+8) If the scan still does not appear:
+ros2 topic echo /scan --once --field header
+ros2 run tf2_ros tf2_echo base_link laser_frame
+ros2 run tf2_ros tf2_echo map laser_frame
+9) Save the corrected RViz configuration:
+File → Save Config As
+
+
+-------------------------------------------------------------------------------------------------
+
+6) Calibrating IMU Covariances Example:
+
+1) Copy the folder "tools" in ros2_ws. Ex: ~/ros2_ws/tools/imu_covariance_from_bag.py
+2) Make it execuable: chmod +x ~/ros2_ws/tools/imu_covariance_from_bag.py
+3) Install packages
+sudo apt update
+sudo apt install ros-jazzy-rosbag2-py python3-numpy python3-yaml
+4) Check calibratuion
+ros2 topic echo /imu/calibration
+5) Record Data (in another terminal)
+mkdir -p ~/ros2_ws/imu_measurements
+cd ~/ros2_ws/imu_measurements
+ros2 bag record -o imu_stationary_motors_off /imu/data /imu/mag /imu/calibration /imu/temperature
+6) Stop recording. Ctrl+C.
+7) Calculate raw measured covariance (in another terminal)
+source /opt/ros/jazzy/setup.bash
+python3 ~/ros2_ws/tools/imu_covariance_from_bag.py \
+  ~/ros2_ws/imu_measurements/imu_stationary_motors_off \
+  --diagonal-only \
+  --output ~/ros2_ws/imu_measurements/motors_off_covariance.yaml
+8) If need to exclude startup data  (Add --skip-end 10 to remove data from end)
+python3 ~/ros2_ws/tools/imu_covariance_from_bag.py \
+  ~/ros2_ws/imu_measurements/imu_stationary_motors_off \
+  --skip-start 30 \
+  --diagonal-only \
+  --output ~/ros2_ws/imu_measurements/motors_off_covariance.yaml
+9) If need to apply safety factor:
+python3 ~/ros2_ws/tools/imu_covariance_from_bag.py \
+  ~/ros2_ws/imu_measurements/imu_stationary_motors_off \
+  --skip-start 30 \
+  --diagonal-only \
+  --safety-factor 3.0 \
+  --output ~/ros2_ws/imu_measurements/motors_off_covariance_safe.yaml
+10) Update "imu_serial_node.py" with covariance values.
+11) Repeat the procedure for different conditions. (Ex: motors on, different vehicle orientation)
+12) Rebuild the package after updating.
+
+-------------------------------------------------------------------------------------------------
+
+7) Using Secure Shell (SSH) to remotely operate (Optional):
+
+* One time Raspberry Pi setup,
+1) After connecting the Pi to wifi, install SSH server
+sudo apt update
+sudo apt install openssh-server xauth
+2) Enable and start SSH
+sudo systemctl enable --now ssh
+3) Check it
+systemctl status ssh
+4) Press "q" to exit
+5) Find RaspberryPi username
+whoami
+6) Find RaspberryPi ipaddress
+hostname -I
+7) Check X11 forwarding for Rviz
+sudo sshd -T | grep x11forwarding  (If no, sudo nano /etc/ssh/sshd_config. Then find and add, X11Forwarding yes. Then save using Ctrl+O Enter Ctrl+X)
+8) Restart SSH
+sudo systemctl restart ssh
+
+* Prepare Ubuntu PC,
+1) After connecting the PC to same wifi, install SSH Client
+sudo apt update
+sudo apt install openssh-client
+2) Test the connection (Use Raspberry Pi ipaddress)
+ping ipaddress
+3) Stop with ctrl+c
+4) Connect to the Pi using SSH (Use Raspberry Pi username and ipaddress)
+ssh username@ipaddress
+5) Then press enter and accept connection. Then type Raspberry Pi password.
+6) Verify the connection with Raspberry Pi
+hostname
+whoami
+7) Test the ROS package through SSH (After sourcing check if package exist)
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+ros2 pkg prefix agv_localization
+8) Run everything without using Rviz (Keep running)
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch agv_localization agv.launch.py use_rviz:=false
+9) Monitor the system from a second terminal
+ssh username@ipaddress     (On another terminal)
+10) Source and check some nodes and slam toolbox
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+ros2 node list
+ros2 topic hz /odometry/filtered 
+ros2 lifecycle get /slam_toolbox
+11) Run RViz on the Ubuntu PC screen (First, stop the previous headless launch in the first SSH terminal and disconnect that ssh session)
+ctrl+c
+exit
+ssh -Y username@ipaddress  (Reconnect from the Ubuntu PC using X11 forwarding)
+echo $DISPLAY   (Check the display. Expected output: localhost:10.0)
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+ros2 launch agv_localization agv.launch.py   (Then Rviz window should appear)
+(if RViz has an OpenGL error, Ctrl+C, export LIBGL_ALWAYS_SOFTWARE=1, Then launch again)
+12) Save the map using the second SSH terminal
+ssh username@ipaddress
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+mkdir -p ~/ros2_ws/maps
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/maps/my_map
+ls -lh ~/ros2_ws/maps/my_map.*
+13) Stop ROS and disconnect SSH
+Ctrl+C (Stops the current ROS command)
+exit (Closes the SSH Connection)
+
+* Normal Operating Sequence (After first time installation):
+1) Power up Raspberry Pi and wait until it connects to wifi
+2) Open terminal in ubuntu PC (Connect with Rviz forwarding)
+ssh -Y username@ipaddress   (Use RaspberryPI username and IP address)
+3) Source ROS
+source /opt/ros/jazzy/setup.bash
+source ~/ros2_ws/install/setup.bash
+4) Start the AGV
+ros2 launch agv_localization agv.launch.py
+5) Use a second SSH terminal for status checks and map saving
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/maps/my_map
+6) Stop the launch with "Ctrl+C".
+7) Disconnect with "exit".
+  
+
+
+
+
