@@ -113,3 +113,28 @@ of the complete mapping system.
 
 [GitHub Portfolio](https://github.com/DakAmarasinghe1994) |
 [LinkedIn](https://www.linkedin.com/in/dak-amarasinghe-946aa71b1/)
+
+## Source Code
+
+- [ROS 2 Packages](./ros2_ws/src/)
+- [Arduino IMU Firmware](./arduino/BNO055_IMU_Data/)
+- [IMU Covariance Analysis Tool](./tools/imu_covariance_from_bag.py)
+
+## Setup and Execution
+
+See the [setup and launching instructions](./instructions/ROS2%20Launching%20Instructions.txt)
+for hardware preparation, dependencies, configuration, and operation.
+
+After preparing the hardware and installing dependencies, build
+and launch the workspace:
+
+```bash
+cd ~/ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch agv_localization agv.launch.py (For operation with Rviz)
+ros2 launch agv_localization agv.launch.py use_rviz:=false (For operation without Rviz)
+```
+
+Note: Update serial device paths and sensor transforms to match current physical setup. Mapping in the documented implementation user manual platform movement with motors inactive.
