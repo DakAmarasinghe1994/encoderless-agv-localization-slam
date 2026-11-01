@@ -1,4 +1,5 @@
 # Encoderless AGV Localization and SLAM
+![Encoderless AGV hardware platform](./Images/agv-platform.jpg)
 
 A ROS 2 localization and mapping prototype combining LiDAR odometry
 and IMU sensor fusion on a Raspberry Pi 5, without wheel encoders.
@@ -68,6 +69,14 @@ RViz • TF2 • rosbag2 • SSH
 - Published filtered odometry and sensor data for visualization
   and diagnostic monitoring.
 - Recorded stationary IMU data and generated covariance-analysis reports.
+
+## Mapping Demonstrations
+![Occupancy-grid mapping in RViz](./Images/odometry.png)
+![Occupancy-grid mapping in RViz](./Images/initial-slam-map.png)
+![Occupancy-grid mapping in RViz](./Images/slam-map.png)
+
+Occupancy-grid map generated during a manually pushed indoor
+mapping test, with laser-scan overlays displayed in RViz.
 
 ## Project Documentation
 
